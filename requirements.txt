@@ -1,0 +1,6 @@
+python-dotenv
+
+pyrogram
+tgcrypto
+
+MetaTrader5

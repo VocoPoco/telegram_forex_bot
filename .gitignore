@@ -1,0 +1,9 @@
+.telegram_bot/
+__pycache__/
+.env/
+.vscode/
+telegram_bot.log
+telegram_bot.session
+telegram_bot.session-journal
+
+mt_bot/__pycache__/
