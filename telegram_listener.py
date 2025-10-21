@@ -16,41 +16,6 @@ class TelegramListener:
         print("Telegram client initialized.")
         self.__retrieve_last_message_id()
 
-        # @self.app.on_message(filters.chat(TELEGRAM_GROUP_ID) & filters.channel)
-        # async def on_channel_post(_, message):
-        #     text = (message.text or message.caption or "").strip()
-        #     if not text:
-        #         return
-
-        #     dt = message.date.strftime("%Y-%m-%d %H:%M:%S")
-        #     print(f"[POST {dt}] chat={message.chat.id} title={message.chat.title!r} text={text!r}")
-
-        #     sig = parse_signal(text)
-        #     if sig and self.queue:
-        #         print(f"[SIGNAL RECEIVED] {sig}")
-        #         self.queue.put(sig)
-
-        # @self.app.on_edited_message(filters.chat(TELEGRAM_GROUP_ID) & filters.channel)
-        # async def on_channel_edit(_, message):
-        #     text = (message.text or message.caption or "").strip()
-        #     if not text:
-        #         return
-        #     dt = message.edit_date.strftime("%Y-%m-%d %H:%M:%S") if message.edit_date else message.date.strftime("%Y-%m-%d %H:%M:%S")
-        #     print(f"[EDIT {dt}] chat={message.chat.id} title={message.chat.title!r} text={text!r}")
-
-        #     sig = parse_signal(text)
-        #     if sig and self.queue:
-        #         self.queue.put(sig)
-
-        # @self.app.on_raw_update()
-        # async def _raw(_, update, users, chats):
-        #     # Look for UpdateNewChannelMessage / UpdateEditChannelMessage
-        #     print("RAW:", type(update))
-        
-        # @self.app.on_message()
-        # async def debug_all_messages(client, message):
-        #     print(f"Incoming: {message.chat.id} | {message.from_user} | {message.text}")
-
 
     async def poll_channel(self):
         """Manually fetch the latest message and check for new signals."""
