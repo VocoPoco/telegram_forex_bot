@@ -1,5 +1,5 @@
 from pyrogram import Client, filters
-from shared.constants import TELEGRAM_APP_ID, TELEGRAM_API_HASH, TELEGRAM_GROUP_ID
+from shared.constants import TELEGRAM_APP_ID, TELEGRAM_API_HASH, TELEGRAM_GROUP_ID, LAST_MESSAGE_FILE
 from shared.parser import parse_signal
 import time
 import asyncio
@@ -14,7 +14,7 @@ class TelegramListener:
         self.queue = queue
         self.app = Client(app_name, api_id=TELEGRAM_APP_ID, api_hash=TELEGRAM_API_HASH)
         print("Telegram client initialized.")
-        self.last_message_id = None
+        self.last_message_id = self.__retrieve_last_message_id()
 
         # @self.app.on_message(filters.chat(TELEGRAM_GROUP_ID) & filters.channel)
         # async def on_channel_post(_, message):
@@ -52,6 +52,7 @@ class TelegramListener:
         #     print(f"Incoming: {message.chat.id} | {message.from_user} | {message.text}")
 
 
+
     async def poll_channel(self):
         """Manually fetch the latest message and check for new signals."""
         while True:
@@ -60,6 +61,8 @@ class TelegramListener:
                     if message:
                         if self.last_message_id != message.id:
                             self.last_message_id = message.id 
+                            self.__store_last_message_id()
+                            
                             text = (message.text or message.caption or "").strip()
 
                             if text:  
@@ -102,6 +105,29 @@ class TelegramListener:
         chat = app.get_chat(-1003054653270)
         print(f"Chat type: {chat.type}")
         app.stop()
+
+    def __retrieve_last_message_id(self):
+        """Retrieve the last processed message ID from file."""
+        try:
+            with open(LAST_MESSAGE_FILE, "r") as f:
+                self.last_message_id = int(f.read().strip())
+                print(f"Retrieved last message ID: {self.last_message_id}")
+        except FileNotFoundError:
+            self.last_message_id = None
+            print("No last message ID file found. Starting fresh.")
+        except Exception as e:
+            print(f"Error retrieving last message ID: {e}")
+            self.last_message_id = None
+    
+    def __store_last_message_id(self):
+        """Store the last processed message ID to file."""
+        try:
+            with open(LAST_MESSAGE_FILE, "w") as f:
+                f.write(str(self.last_message_id))
+                print(f"Stored last message ID: {self.last_message_id}")
+        except Exception as e:
+            print(f"Error storing last message ID: {e}")
+
 
 if __name__ == "__main__":
     listener = TelegramListener(queue=None)
