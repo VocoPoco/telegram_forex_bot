@@ -22,3 +22,5 @@ MAX_SLIPPAGE_PT=os.getenv("MAX_SLIPPAGE_PT")
 MAGIC_NUMBER=os.getenv("MAGIC_NUMBER")
 DEFAULT_LOT_SIZE=float(os.getenv("DEFAULT_LOT_SIZE", "0.01"))
 DEFAULT_SYMBOL=os.getenv("DEFAULT_SYMBOL", "XAUUSD.s")
+
+LAST_MESSAGE_FILE = "last_message_id.txt"

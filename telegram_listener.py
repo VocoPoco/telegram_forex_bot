@@ -14,7 +14,7 @@ class TelegramListener:
         self.queue = queue
         self.app = Client(app_name, api_id=TELEGRAM_APP_ID, api_hash=TELEGRAM_API_HASH)
         print("Telegram client initialized.")
-        self.last_message_id = self.__retrieve_last_message_id()
+        self.__retrieve_last_message_id()
 
         # @self.app.on_message(filters.chat(TELEGRAM_GROUP_ID) & filters.channel)
         # async def on_channel_post(_, message):
@@ -52,7 +52,6 @@ class TelegramListener:
         #     print(f"Incoming: {message.chat.id} | {message.from_user} | {message.text}")
 
 
-
     async def poll_channel(self):
         """Manually fetch the latest message and check for new signals."""
         while True:
@@ -60,9 +59,10 @@ class TelegramListener:
                 async for message in self.app.get_chat_history(TELEGRAM_GROUP_ID, limit=1):
                     if message:
                         if self.last_message_id != message.id:
+                            print(f"New message ID {message.id} detected (last was {self.last_message_id})")
                             self.last_message_id = message.id 
                             self.__store_last_message_id()
-                            
+
                             text = (message.text or message.caption or "").strip()
 
                             if text:  
@@ -76,6 +76,7 @@ class TelegramListener:
                 print(f"Error while fetching messages: {e}")
 
             await asyncio.sleep(3)
+
 
     async def run(self):
         """Start the Telegram client and begin polling messages."""
@@ -94,10 +95,12 @@ class TelegramListener:
             print(f"Last message: {msg.text}")
         app.stop()
 
+
     def print_dm_id(self):
         with Client("telegram_bot", api_id=TELEGRAM_APP_ID, api_hash=TELEGRAM_API_HASH) as app:
             for dialog in app.get_dialogs():
                 print(f"{dialog.chat.title}: {dialog.chat.id}")
+
 
     def check_group_type(self):
         app = Client("telegram_bot", api_id=TELEGRAM_APP_ID, api_hash=TELEGRAM_API_HASH)
@@ -105,6 +108,7 @@ class TelegramListener:
         chat = app.get_chat(-1003054653270)
         print(f"Chat type: {chat.type}")
         app.stop()
+
 
     def __retrieve_last_message_id(self):
         """Retrieve the last processed message ID from file."""
@@ -118,7 +122,8 @@ class TelegramListener:
         except Exception as e:
             print(f"Error retrieving last message ID: {e}")
             self.last_message_id = None
-    
+
+
     def __store_last_message_id(self):
         """Store the last processed message ID to file."""
         try:
