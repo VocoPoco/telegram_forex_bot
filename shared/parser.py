@@ -1,43 +1,56 @@
-def normalize_number(s: str) -> float:
+from datetime import datetime
+from domain.models import Signal
+
+
+class SignalParser:
     """
-    Convert a string into a float, replacing commas with dots and trimming spaces.
+    Parses raw Telegram message text into structured trading signals.
+    Each parser instance can be configured (e.g., logging, normalization rules).
     """
-    return float(s.replace(",", ".").strip())
 
+    def __init__(self, normalize_commas: bool = True):
+        self.normalize_commas = normalize_commas
 
-def parse_signal(text: str):
-    """
-    Parse a trading signal in the format:
-    SYMBOL SIDE (ENTRY_LOW-ENTRY_HIGH)
-    TP TP_VALUE 
-    STOP LOSS: SL_VALUE
+    def _normalize_number(self, s: str) -> float:
+        """Convert a string into a float, replacing commas with dots if configured."""
+        if self.normalize_commas:
+            s = s.replace(",", ".")
+        return float(s.strip())
 
-    Splits the message and extracts symbol, side, entry range, TP, and SL.
-    Returns a dictionary with these values or None if parsing fails.
-    """
-    text = text.strip().upper().replace("\n", " ")
+    def parse(self, message_id: int, created_at: datetime, text: str) -> Signal | None:
+        """
+        Converts a Telegram message like:
+            "XAUUSD BUY (4276.5-4275.5) TP 4283 STOP LOSS: 4220"
+        into a structured Signal object.
+        """
 
-    try:
-        parts = text.split()
+        text_clean = text.strip().upper().replace("\n", " ")
 
-        side   = parts[1]      
+        try:
+            words = text_clean.split()
 
-        entry_str = parts[2].strip("()") 
-        entry_low, entry_high = map(normalize_number, entry_str.split("-"))
+            symbol = words[0]       
+            direction = words[1] 
 
-        tp_index = parts.index("TP")
-        tp = normalize_number(parts[tp_index + 1])
+            entry_range = words[2].strip("()").split("-")
+            entry_low = self._normalize_number(entry_range[0])
+            entry_high = self._normalize_number(entry_range[1])
 
-        sl_index = parts.index("LOSS:")
-        sl = normalize_number(parts[sl_index + 1])
+            tp_value = self._normalize_number(words[words.index("TP") + 1])
+            sl_value = self._normalize_number(words[words.index("LOSS:") + 1])
 
-        return {
-            "side": side,
-            "entry_low": entry_low,
-            "entry_high": entry_high,
-            "tp": tp,
-            "sl": sl
-        }
-    except Exception as e:
-        print(f"[Parser ERROR] Could not parse: {text} | {e}")
-        return None
+            return Signal(
+                message_id=message_id,
+                created_at=created_at,
+                symbol=symbol,
+                side=direction,
+                entry_low=entry_low,
+                entry_high=entry_high,
+                tp=tp_value,
+                sl=sl_value,
+                raw_text=text
+            )
+
+        except Exception as e:
+            print(f"[Parser ERROR] Failed to parse message: {text} | Error: {e}")
+            return None
