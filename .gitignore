@@ -1,9 +1,10 @@
 .telegram_bot/
-.env/
+.env
 .vscode/
 telegram_bot.log
 telegram_bot.session
 telegram_bot.session-journal
+
 
 mt_bot/__pycache__/# Byte-compiled / optimized / DLL files
 __pycache__/
