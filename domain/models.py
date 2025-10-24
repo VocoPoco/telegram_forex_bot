@@ -21,3 +21,4 @@ class SignalResult:
     hit_time: Optional[datetime]
     entry_type: str 
     notes: str = ""
+    
