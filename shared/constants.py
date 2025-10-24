@@ -15,7 +15,12 @@ TELEGRAM_GROUP_NAME = os.getenv("TELEGRAM_GROUP_NAME")
 MT5_ACCOUNT=int(os.getenv("MT5_ACCOUNT"))
 MT5_SERVER=os.getenv("MT5_SERVER")
 MT5_PASSWORD=os.getenv("MT5_PASSWORD")
-MT5_INVESTOR=os.getenv("MT5_INVESTOR")
+
+# MetaTrader 5 Demo configuration
+MT5_ACCOUNT_DEMO=int(os.getenv("MT5_ACCOUNT_DEMO"))
+MT5_SERVER_DEMO=os.getenv("MT5_SERVER_DEMO")
+MT5_PASSWORD_DEMO=os.getenv("MT5_PASSWORD_DEMO")
+
 
 # Market order configuration
 MAX_SLIPPAGE_PT=os.getenv("MAX_SLIPPAGE_PT")
