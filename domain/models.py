@@ -15,10 +15,10 @@ class Signal:
     raw_text: str
 
 @dataclass
-class SignalResult:
-    signal: Signal
-    hit: Optional[str]
-    hit_time: Optional[datetime]
-    entry_type: str 
-    notes: str = ""
-    
+class TradeResult:
+    success: bool
+    order_id: Optional[int]
+    deal_id: Optional[int]
+    price: Optional[float]
+    comment: str
+    executed_at: datetime
