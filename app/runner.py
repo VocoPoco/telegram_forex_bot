@@ -3,6 +3,7 @@ from asyncio import Queue
 from mt_bot.trade_executioner import TradeExecutioner
 from telegram_listener import TelegramListener
 
+
 async def run_trader_process(signal_queue):
     """Run the trading algorithm asynchronously."""
     trade_executor = TradeExecutioner()
