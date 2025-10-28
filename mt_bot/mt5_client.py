@@ -4,7 +4,7 @@ import datetime
 from domain.models import Signal, TradeResult
 
 
-class MT5Trader:
+class MT5Client:
     """Encapsulates connection to MetaTrader 5 and trade execution."""
 
     def __init__(self, account: int = MT5_ACCOUNT_DEMO, password: str = MT5_PASSWORD_DEMO, server: str = MT5_SERVER_DEMO):
@@ -70,13 +70,13 @@ class MT5Trader:
         return {
             "action": mt5.TRADE_ACTION_DEAL,
             "symbol": signal.symbol,
-            "volume": DEFAULT_LOT_SIZE,
+            "volume": 0.05,
             "type": order_type,
             "price": price,
             "sl": signal.sl,
             "tp": signal.tp,
-            "deviation": MAX_SLIPPAGE_PT,
-            "magic": MAGIC_NUMBER,
+            "deviation": 10,
+            "magic": 123456789,
             "comment": "Trade via API",
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": mt5.ORDER_FILLING_IOC,
@@ -93,5 +93,5 @@ class MT5Trader:
             deal_id=result.deal,
             price=result.price,
             comment=result.comment,
-            executed_at=datetime.now(),
+            executed_at=datetime.datetime.now(),
         )
