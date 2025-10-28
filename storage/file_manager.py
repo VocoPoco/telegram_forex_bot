@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from typing import Any, Optional
-from shared.constants import LAST_ID_PATH, HISTORY_PATH, RESULTS_PATH
+from shared.constants import LAST_MESSAGE_ID_PATH, HISTORY_PATH, RESULTS_PATH
 
 
 class FileManager:
@@ -11,27 +11,27 @@ class FileManager:
     Keeps all file I/O in one place.
     """
 
-    def __init__(self, last_id_path: str = LAST_ID_PATH,
+    def __init__(self, LAST_MESSAGE_ID_PATH: str = LAST_MESSAGE_ID_PATH,
                  history_path: str = HISTORY_PATH,
                  results_path: str = RESULTS_PATH):
-        self.last_id_path = Path(last_id_path)
+        self.LAST_MESSAGE_ID_PATH = Path(LAST_MESSAGE_ID_PATH)
         self.history_path = Path(history_path)
         self.results_path = Path(results_path)
 
 
     def read_last_message_id(self) -> Optional[int]:
         """Read the last saved message ID from file."""
-        if not self.last_id_path.exists():
+        if not self.LAST_MESSAGE_ID_PATH.exists():
             return None
         try:
-            return int(self.last_id_path.read_text().strip())
+            return int(self.LAST_MESSAGE_ID_PATH.read_text().strip())
         except Exception:
             return None
 
     def write_last_message_id(self, message_id: int) -> None:
         """Write the last processed message ID to file."""
-        self.last_id_path.parent.mkdir(parents=True, exist_ok=True)
-        self.last_id_path.write_text(str(message_id))
+        self.LAST_MESSAGE_ID_PATH.parent.mkdir(parents=True, exist_ok=True)
+        self.LAST_MESSAGE_ID_PATH.write_text(str(message_id))
 
 
     def save_json(self, obj: Any, path: Optional[str] = None) -> None:
