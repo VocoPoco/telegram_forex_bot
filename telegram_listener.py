@@ -1,11 +1,19 @@
-from pyrogram import Client, filters
-from shared.constants import TELEGRAM_APP_ID, TELEGRAM_API_HASH, TELEGRAM_GROUP_ID, LAST_MESSAGE_FILE
-from shared.parser import SignalParser, parse_signal
+from pyrogram import Client
+from shared.constants import TELEGRAM_APP_ID, TELEGRAM_API_HASH, TELEGRAM_GROUP_ID, LAST_MESSAGE_ID_PATH
+from shared.parser import SignalParser
 from storage.file_manager import FileManager
 
-import time
 import asyncio
 from datetime import datetime, timezone
+from pathlib import Path
+import os
+
+def _find_anchor_dir(anchor_name: str) -> Path:
+    cur = Path(__file__).resolve().parent
+    for p in [cur, *cur.parents]:
+        if p.name == anchor_name:
+            return p
+    return cur
 
 
 class TelegramListener:
@@ -16,10 +24,19 @@ class TelegramListener:
 
     def __init__(self, queue, app_name: str = "telegram_bot"):
         self.queue = queue
-        self.app = Client(app_name, api_id=TELEGRAM_APP_ID, api_hash=TELEGRAM_API_HASH)
+
+        # Temporary solution to find the anchor directory
+        anchor = _find_anchor_dir("telegram_bot")
+        
+        sessions_dir = Path(os.getenv("SESSION_DIR", anchor / "var" / "sessions")).resolve()
+        sessions_dir.mkdir(parents=True, exist_ok=True)
+
+        session_base = sessions_dir / app_name
+
+        self.app = Client(str(session_base), api_id=TELEGRAM_APP_ID, api_hash=TELEGRAM_API_HASH)
         self.parser = SignalParser()
-        self.file_manager = FileManager(last_id_path=LAST_MESSAGE_FILE)
-        self.__retrieve_last_message_id_from_file()
+        self.file_manager = FileManager(LAST_MESSAGE_ID_PATH=LAST_MESSAGE_ID_PATH)
+        self.last_message_id = self.file_manager.read_last_message_id()
 
 
     async def run(self):
@@ -37,13 +54,13 @@ class TelegramListener:
                         if self.last_message_id != message.id:
                             print(f"New message ID {message.id} detected (last was {self.last_message_id})")
                             self.last_message_id = message.id 
-                            self.__store_last_message_id_in_file(self.last_message_id)
+                            self.file_manager.write_last_message_id(self.last_message_id)
 
                             text = (message.text or message.caption or "").strip()
 
                             if text:  
                                 print(f"New message detected: {text}")
-                                sig = self.parser.parse(text)
+                                sig = self.parser.parse(message.id, message.date, text)
                                 if sig and self.queue:
                                     print(f"[SIGNAL RECEIVED] {sig}")
                                     await self.queue.put(sig) 
@@ -58,16 +75,15 @@ class TelegramListener:
     def print_last_message(self):
         # Forex testing signals id group: -1003100636902
         # Forex channel testL -1003054653270
-        app = Client("telegram_bot", api_id=TELEGRAM_APP_ID, api_hash=TELEGRAM_API_HASH)
-        app.start()
-        messages = app.get_chat_history(-1003054653270, limit=1)
+        self.app.start()
+        messages = self.app.get_chat_history(-1003054653270, limit=1)
         for msg in messages:
             print(f"Last message: {msg.text}")
-        app.stop()
+        self.app.stop()
 
 
     def print_dm_id(self):
-        with Client("telegram_bot", api_id=TELEGRAM_APP_ID, api_hash=TELEGRAM_API_HASH) as app:
+        with self.app as app:
             for dialog in app.get_dialogs():
                 print(f"{dialog.chat.title}: {dialog.chat.id}")
 
