@@ -29,7 +29,7 @@ class SignalParser:
         try:
             words = text_clean.split()
 
-            symbol = words[0]       
+            # symbol = words[0] # Currently hardcoded to XAUUSD.s
             direction = words[1] 
 
             entry_range = words[2].strip("()").split("-")
@@ -42,7 +42,7 @@ class SignalParser:
             return Signal(
                 message_id=message_id,
                 created_at=created_at,
-                symbol=symbol,
+                symbol="XAUUSD.s",
                 side=direction,
                 entry_low=entry_low,
                 entry_high=entry_high,
