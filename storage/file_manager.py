@@ -1,4 +1,6 @@
 import json
+import pandas as pd
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 from shared.constants import LAST_MESSAGE_ID_PATH, HISTORY_PATH, RESULTS_PATH
@@ -28,6 +30,7 @@ class FileManager:
         except Exception:
             return None
 
+
     def write_last_message_id(self, message_id: int) -> None:
         """Write the last processed message ID to file."""
         self.LAST_MESSAGE_ID_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -40,6 +43,7 @@ class FileManager:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(obj, default=str, indent=2))
 
+
     def load_json(self, path: Optional[str] = None) -> Any:
         """Load a JSON file into memory."""
         target = Path(path or self.history_path)
@@ -48,13 +52,31 @@ class FileManager:
         return json.loads(target.read_text())
 
 
-    def append_results(self, rows: list[dict], path: Optional[str] = None) -> None:
+    def save_results_to_json(self, rows: list[dict], path: Optional[str] = None) -> None:
         """
-        Append rows to a .jsonl (JSON lines) file.
-        Each row is written on a new line for efficient incremental storage.
+        Overwrite (rewrite) a .jsonl file with new rows.
+        Each row is written on a new line for structured, easy-to-read storage.
+        Existing data will be replaced.
         """
         target = Path(path or self.results_path)
         target.parent.mkdir(parents=True, exist_ok=True)
-        with target.open("a", encoding="utf-8") as f:
+        with target.open("w", encoding="utf-8") as f:   
             for r in rows:
                 f.write(json.dumps(r, default=str) + "\n")
+
+
+    def save_results_to_excel(self, rows: list[dict], folder: str = "output", filename: str = "signal_results.xlsx"):
+        """Save results to an Excel file for easier analysis."""
+    
+        output_dir = Path(folder)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / filename
+
+        for row in rows:
+            for key, value in row.items():
+                if isinstance(value, datetime):
+                    row[key] = value.replace(tzinfo=None)
+
+
+        df = pd.DataFrame(rows)
+        df.to_excel(output_path, index=False)
