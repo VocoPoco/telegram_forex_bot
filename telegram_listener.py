@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import os
 
+
 def _find_anchor_dir(anchor_name: str) -> Path:
     cur = Path(__file__).resolve().parent
     for p in [cur, *cur.parents]:
@@ -44,6 +45,7 @@ class TelegramListener:
         await self.app.start()
         print("Telegram listener started.")
         await self.poll_channel()
+
 
     async def poll_channel(self):
         """Manually fetch the latest message and check for new signals."""
@@ -111,6 +113,7 @@ class TelegramListener:
         finally:
             self.app.stop()
         return out
+
 
 if __name__ == "__main__":
     listener = TelegramListener(queue=None)
