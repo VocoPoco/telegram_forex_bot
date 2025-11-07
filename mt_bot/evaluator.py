@@ -72,7 +72,7 @@ class Evaluator:
                 return result
             if not in_trade and entry_price:
                 in_trade = self._check_entry_trigger(signal, bar, entry_price)
-        return self._make_result(None, None, None, entry_type, "timeout")
+        return self._make_result(None, entry_price, None, entry_type, "timeout")
 
 
     def _evaluate_bar(self, signal: Signal, bar, in_trade: bool, entry_type: str, entry_price: float | None) -> dict | None:
