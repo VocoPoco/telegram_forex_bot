@@ -22,3 +22,12 @@ class TradeResult:
     price: Optional[float]
     comment: str
     executed_at: datetime
+
+@dataclass
+class EvaluationResult:
+    status: Optional[str]
+    hit_time: Optional[datetime]
+    entry_price: Optional[float]
+    entry_type: str
+    notes: str
+    profit: Optional[float]
