@@ -13,6 +13,15 @@ class MT5Client:
         self.server = server
         self.connected = False
 
+    def __enter__(self):
+        """Allow usage with 'with' statement."""
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Ensure MT5 is properly shutdown on exit."""
+        self.shutdown()
+
     def connect(self):
         """Initialize MT5 and log in to the given account."""
         if not mt5.initialize():
@@ -25,6 +34,13 @@ class MT5Client:
                 raise RuntimeError(f"MT5 login failed: {err}")
         self.connected = True
         print("[MT5] Connected successfully.")
+
+    def shutdown(self):
+        """Cleanly shutdown MT5 connection."""
+        if self.connected:
+            mt5.shutdown()
+            self.connected = False
+            print("[MT5] Connection closed.")
 
     def ensure_symbol(self, symbol: str):
         """Make sure a symbol is available and visible."""
@@ -65,14 +81,43 @@ class MT5Client:
         return tick.ask if side.upper() == "BUY" else tick.bid
 
 
+
+    def _decide_entry(self, symbol: str, side: str, entry_low: float, entry_high: float) -> tuple[str, float | None]:
+        """Determine entry type and entry price based on the signal and current market price."""
+        tick = mt5.symbol_info_tick(symbol)
+        if not tick:
+            return mt5.ORDER_TYPE_BUY, None
+
+        ask, bid = tick.ask, tick.bid
+        side = side.upper()
+
+        if side == "BUY":
+            if entry_low > ask:
+                return mt5.ORDER_TYPE_BUY_STOP, entry_low
+            if entry_high < ask:
+                return mt5.ORDER_TYPE_BUY_LIMIT, entry_high
+            return mt5.ORDER_TYPE_BUY, ask
+        else:
+            if entry_high < bid:
+                return mt5.ORDER_TYPE_SELL_STOP, entry_high
+            if entry_low > bid:
+                return  mt5.ORDER_TYPE_SELL_LIMIT, entry_low
+            return mt5.ORDER_TYPE_SELL, bid
+
     def _build_order_request(self, signal: Signal, price: float) -> dict:
-        order_type = mt5.ORDER_TYPE_BUY if signal.side.upper() == "BUY" else mt5.ORDER_TYPE_SELL
+        # order_type = mt5.ORDER_TYPE_BUY if signal.side.upper() == "BUY" else mt5.ORDER_TYPE_SELL
+        order_type, entry_price = self._decide_entry(signal.symbol, signal.side, signal.entry_low, signal.entry_high)
+        action = (
+            mt5.TRADE_ACTION_DEAL
+            if order_type == mt5.ORDER_TYPE_BUY or order_type == mt5.ORDER_TYPE_SELL
+            else mt5.TRADE_ACTION_PENDING
+        )
         return {
-            "action": mt5.TRADE_ACTION_DEAL,
+            "action": action,
             "symbol": signal.symbol,
             "volume": 0.05,
             "type": order_type,
-            "price": price,
+            "price": entry_price,
             "sl": signal.sl,
             "tp": signal.tp,
             "deviation": 10,

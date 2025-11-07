@@ -8,14 +8,12 @@ class TradeExecutioner:
 
     def execute_trade(self, signal: Signal) -> TradeResult:
         """Execute a trade based on the parsed signal."""
-        if not self.trader.connected:
-            self.trader.connect()
-
-        symbol = DEFAULT_SYMBOL
-        side = signal.side
-        tp = signal.tp
-        sl = signal.sl
-        
-        print(f"Placing {side} order for {symbol}, TP: {tp}, SL: {sl}")
-        result = self.trader.place_market_order(signal)
-        print(f"Order result: {result.comment}")
+        with self.trader:
+            symbol = DEFAULT_SYMBOL
+            side = signal.side
+            tp = signal.tp
+            sl = signal.sl
+            
+            print(f"Placing {side} order for {symbol}, TP: {tp}, SL: {sl}")
+            result = self.trader.place_market_order(signal)
+            print(f"Order result: {result.comment}")
