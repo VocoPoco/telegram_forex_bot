@@ -12,16 +12,49 @@ class SignalParser:
         self.normalize_commas = normalize_commas
 
     def _normalize_number(self, s: str) -> float:
-        """Convert a string into a float, replacing commas with dots if configured."""
+        """Parse messy numeric strings without regex (handles extra dots/commas, junk chars)."""
+        string = str(s)
+
         if self.normalize_commas:
-            s = s.replace(",", ".")
-        return float(s.strip())
+            string = string.replace(",", ".")
+
+        string = string.strip()
+        out = []
+        dot_seen = False
+        minus_allowed = True  
+
+        for character in string:
+            if character.isdigit():
+                out.append(character)
+                minus_allowed = False
+            elif character == '.':
+                if not dot_seen:
+                    out.append('.')
+                    dot_seen = True
+                minus_allowed = False
+            elif character == '-':
+                if minus_allowed:
+                    out.append('-')
+                    minus_allowed = False
+            else:
+                continue
+
+        cleaned = ''.join(out)
+
+        if cleaned.endswith('.'):
+            cleaned = cleaned[:-1]
+        if cleaned in ('', '-'):
+            raise ValueError(f"Cannot parse numeric value from '{s}'")
+
+        return float(cleaned)
 
     def parse(self, message_id: int, created_at: datetime, text: str) -> Signal | None:
         """
         Converts a Telegram message like:
             "XAUUSD BUY (4276.5-4275.5) TP 4283 STOP LOSS: 4220"
         into a structured Signal object.
+
+        Returns an instance of Signal or None if parsing fails.
         """
 
         text_clean = text.strip().upper().replace("\n", " ")
@@ -29,7 +62,7 @@ class SignalParser:
         try:
             words = text_clean.split()
 
-            # symbol = words[0] # Currently hardcoded to XAUUSD.s
+            symbol = words[0]
             direction = words[1] 
 
             entry_range = words[2].strip("()").split("-")
@@ -42,7 +75,7 @@ class SignalParser:
             return Signal(
                 message_id=message_id,
                 created_at=created_at,
-                symbol="XAUUSD.s",
+                symbol=symbol + ".s",
                 side=direction,
                 entry_low=entry_low,
                 entry_high=entry_high,
