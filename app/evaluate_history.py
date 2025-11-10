@@ -20,7 +20,6 @@ if __name__ == "__main__":
                 continue
 
             res = evaluator.evaluate_signal(sig)
-            print(f"Evaluated message {sig.message_id}")
 
             rows.append({
                 "message_id": sig.message_id,
