@@ -73,13 +73,19 @@ class MT5Client:
         result = mt5.order_send(request)
         return self._process_order_result(result)
 
+    def place_simulation_market_order(self, signal: Signal) -> TradeResult:
+        """Placing a simulation market order based on the signal."""
+        self.ensure_symbol(signal.symbol)
+        price = self._get_order_price(signal.symbol, signal.side)
+        request = self._build_simulation_order_request(signal, price)
+        result = mt5.order_send(request)
+        return self._process_order_result(result)
 
     def _get_order_price(self, symbol: str, side: str) -> float:
         tick = mt5.symbol_info_tick(symbol)
         if not tick:
             raise RuntimeError(f"No tick data for {symbol}")
         return tick.ask if side.upper() == "BUY" else tick.bid
-
 
 
     def _decide_entry(self, symbol: str, side: str, entry_low: float, entry_high: float) -> tuple[str, float | None]:
@@ -104,28 +110,59 @@ class MT5Client:
                 return  mt5.ORDER_TYPE_SELL_LIMIT, entry_low
             return mt5.ORDER_TYPE_SELL, bid
 
+
     def _build_order_request(self, signal: Signal, price: float) -> dict:
-        # order_type = mt5.ORDER_TYPE_BUY if signal.side.upper() == "BUY" else mt5.ORDER_TYPE_SELL
         order_type, entry_price = self._decide_entry(signal.symbol, signal.side, signal.entry_low, signal.entry_high)
         action = (
             mt5.TRADE_ACTION_DEAL
             if order_type == mt5.ORDER_TYPE_BUY or order_type == mt5.ORDER_TYPE_SELL
             else mt5.TRADE_ACTION_PENDING
         )
+
+        mapping = {
+            "XAUUSD.S": 0.01,
+            "USDJPY.S": 0.04,
+        }
+        volume = mapping.get(signal.symbol.upper())
         return {
             "action": action,
             "symbol": signal.symbol,
-            "volume": 0.05,
+            "volume": volume,
             "type": order_type,
             "price": entry_price,
             "sl": signal.sl,
             "tp": signal.tp,
-            "deviation": 10,
+            "deviation": 100,
             "magic": 123456789,
             "comment": "Trade via API",
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": mt5.ORDER_FILLING_IOC,
         }
+    
+    def _build_simulation_order_request(self, signal: Signal, price: float) -> dict:
+        order_type = mt5.ORDER_TYPE_BUY if signal.side.upper() == "BUY" else mt5.ORDER_TYPE_SELL
+        
+        mapping = {
+            "XAUUSD.S": 0.01,
+            "USDJPY.S": 0.04,
+        }
+        volume = mapping.get(signal.symbol.upper())
+
+        return {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": signal.symbol,
+            "volume": volume,
+            "type": order_type,
+            "price": price,
+            "sl": signal.sl,
+            "tp": signal.tp,
+            "deviation": 100,
+            "magic": 123456789,
+            "comment": "Trade via API",
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": mt5.ORDER_FILLING_IOC,
+        }
+
 
 
     def _process_order_result(self, result) -> TradeResult:
