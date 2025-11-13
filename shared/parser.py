@@ -1,15 +1,18 @@
 from datetime import datetime
 from domain.models import Signal
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SignalParser:
     """
     Parses raw Telegram message text into structured trading signals.
-    Each parser instance can be configured (e.g., logging, normalization rules).
     """
 
     def __init__(self, normalize_commas: bool = True):
         self.normalize_commas = normalize_commas
+        logger.info("SignalParser initialized (normalize_commas=%s)", normalize_commas)
 
     def _normalize_number(self, s: str) -> float:
         """Parse messy numeric strings without regex (handles extra dots/commas, junk chars)."""
@@ -21,7 +24,7 @@ class SignalParser:
         string = string.strip()
         out = []
         dot_seen = False
-        minus_allowed = True  
+        minus_allowed = True
 
         for character in string:
             if character.isdigit():
@@ -63,7 +66,7 @@ class SignalParser:
             words = text_clean.split()
 
             symbol = words[0]
-            direction = words[1] 
+            direction = words[1]
 
             entry_range = words[2].strip("()").split("-")
             entry_low = self._normalize_number(entry_range[0])
@@ -72,7 +75,7 @@ class SignalParser:
             tp_value = self._normalize_number(words[words.index("TP") + 1])
             sl_value = self._normalize_number(words[words.index("LOSS:") + 1])
 
-            return Signal(
+            signal = Signal(
                 message_id=message_id,
                 created_at=created_at,
                 symbol=symbol + ".s",
@@ -84,6 +87,9 @@ class SignalParser:
                 raw_text=text
             )
 
-        except Exception as e:
-            print(f"[Parser ERROR] Failed to parse message: {text} | Error: {e}")
+            logger.info("Parsed signal: %s", signal)
+            return signal
+
+        except Exception:
+            logger.exception("Failed to parse message: %s", text)
             return None
