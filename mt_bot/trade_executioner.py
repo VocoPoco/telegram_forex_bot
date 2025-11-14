@@ -3,7 +3,6 @@ from mt_bot.mt5_client import MT5Client
 from shared.constants import DEFAULT_SYMBOL, MT5_ACCOUNT, MT5_PASSWORD, MT5_SERVER
 import logging
 
-# module-level logger
 logger = logging.getLogger(__name__)
 
 
@@ -29,29 +28,29 @@ class TradeExecutioner:
 
         with self.trader:
             try:
-                result = self.trader.place_market_order(signal)
+                pending_order_result = self.trader.place_market_order(signal)
                 logger.info(
                     "Live trade sent: order_id=%s deal_id=%s comment=%s",
-                    result.order_id,
-                    result.deal_id,
-                    result.comment,
+                    pending_order_result.order_id,
+                    pending_order_result.deal_id,
+                    pending_order_result.comment,
                 )
             except Exception:
                 logger.exception("Error while sending LIVE trade for signal %s", signal)
                 raise
 
             try:
-                simulation_result = self.trader.place_simulation_market_order(signal)
+                instant_order_result = self.trader.place_instant_market_order(signal)
                 logger.info(
-                    "Simulation trade sent: order_id=%s deal_id=%s comment=%s",
-                    simulation_result.order_id,
-                    simulation_result.deal_id,
-                    simulation_result.comment,
+                    "Instant trade sent: order_id=%s deal_id=%s comment=%s",
+                    instant_order_result.order_id,
+                    instant_order_result.deal_id,
+                    instant_order_result.comment,
                 )
             except Exception:
                 logger.exception(
-                    "Error while sending SIMULATION trade for signal %s", signal
+                    "Error while sending instant trade for signal %s", signal
                 )
                 raise
 
-        return result
+        return pending_order_result
