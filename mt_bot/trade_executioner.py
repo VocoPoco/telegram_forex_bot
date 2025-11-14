@@ -30,13 +30,13 @@ class TradeExecutioner:
             try:
                 pending_order_result = self.trader.place_market_order(signal)
                 logger.info(
-                    "Live trade sent: order_id=%s deal_id=%s comment=%s",
+                    "Pending trade sent: order_id=%s deal_id=%s comment=%s",
                     pending_order_result.order_id,
                     pending_order_result.deal_id,
                     pending_order_result.comment,
                 )
             except Exception:
-                logger.exception("Error while sending LIVE trade for signal %s", signal)
+                logger.exception("Error while sending PENDING trade for signal %s", signal)
                 raise
 
             try:
@@ -49,7 +49,7 @@ class TradeExecutioner:
                 )
             except Exception:
                 logger.exception(
-                    "Error while sending instant trade for signal %s", signal
+                    "Error while sending INSTANT trade for signal %s", signal
                 )
                 raise
 
