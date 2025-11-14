@@ -1,11 +1,8 @@
 import MetaTrader5 as mt5
 from shared.constants import (
-    DEFAULT_LOT_SIZE,
     MT5_ACCOUNT_DEMO,
     MT5_PASSWORD_DEMO,
     MT5_SERVER_DEMO,
-    MAX_SLIPPAGE_PT,
-    MAGIC_NUMBER,
 )
 import datetime
 from domain.models import Signal, TradeResult
@@ -142,10 +139,10 @@ class MT5Client:
         result = mt5.order_send(request)
         return self._process_order_result(result)
 
-    def place_simulation_market_order(self, signal: Signal) -> TradeResult:
-        """Placing a simulation market order based on the signal."""
+    def place_instant_market_order(self, signal: Signal) -> TradeResult:
+        """Placing a instant market order based on the signal."""
         logger.info(
-            "Placing simulation market order for signal: %s %s, tp=%s, sl=%s",
+            "Placing instant market order for signal: %s %s, tp=%s, sl=%s",
             signal.symbol,
             signal.side,
             signal.tp,
@@ -153,10 +150,32 @@ class MT5Client:
         )
         self.ensure_symbol(signal.symbol)
         price = self._get_order_price(signal.symbol, signal.side)
-        request = self._build_simulation_order_request(signal, price)
-        logger.debug("Order request (simulation): %s", request)
+        request = self._build_instant_order_request(signal, price)
+        logger.debug("Order request (instant): %s", request)
         result = mt5.order_send(request)
         return self._process_order_result(result)
+    
+    def cancel_pending_order(self, order_ticket: int):
+        """Cancel a pending order by its ticket."""
+        logger.info("Attempting to cancel pending order %s", order_ticket)
+
+        request = {
+            "action": mt5.TRADE_ACTION_REMOVE,
+            "order": order_ticket,
+        }
+
+        result = mt5.order_send(request)
+        if result is None:
+            err = mt5.last_error()
+            logger.error("Cancel order failed: %s", err)
+            raise RuntimeError(f"Cancel order failed: {err}")
+
+        logger.info(
+            "Cancel order result: retcode=%s, comment=%s",
+            result.retcode,
+            result.comment,
+        )
+        return result
 
     def _get_order_price(self, symbol: str, side: str) -> float:
         tick = mt5.symbol_info_tick(symbol)
@@ -214,15 +233,7 @@ class MT5Client:
             "XAUUSD.S": 0.01,
             "USDJPY.S": 0.04,
         }
-        volume = mapping.get(signal.symbol.upper(), DEFAULT_LOT_SIZE)
-
-        if volume is None or volume <= 0:
-            logger.warning(
-                "Volume not found or invalid for symbol %s, using DEFAULT_LOT_SIZE=%s",
-                signal.symbol,
-                DEFAULT_LOT_SIZE,
-            )
-            volume = DEFAULT_LOT_SIZE
+        volume = mapping.get(signal.symbol.upper())
 
         request = {
             "action": action,
@@ -232,8 +243,8 @@ class MT5Client:
             "price": entry_price if entry_price is not None else price,
             "sl": signal.sl,
             "tp": signal.tp,
-            "deviation": MAX_SLIPPAGE_PT,
-            "magic": MAGIC_NUMBER,
+            "deviation": 100,
+            "magic": 123456789,
             "comment": "Trade via API",
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": mt5.ORDER_FILLING_IOC,
@@ -241,22 +252,14 @@ class MT5Client:
 
         return request
 
-    def _build_simulation_order_request(self, signal: Signal, price: float) -> dict:
+    def _build_instant_order_request(self, signal: Signal, price: float) -> dict:
         order_type = mt5.ORDER_TYPE_BUY if signal.side.upper() == "BUY" else mt5.ORDER_TYPE_SELL
 
         mapping = {
             "XAUUSD.S": 0.01,
             "USDJPY.S": 0.04,
         }
-        volume = mapping.get(signal.symbol.upper(), DEFAULT_LOT_SIZE)
-
-        if volume is None or volume <= 0:
-            logger.warning(
-                "Simulation volume not found or invalid for symbol %s, using DEFAULT_LOT_SIZE=%s",
-                signal.symbol,
-                DEFAULT_LOT_SIZE,
-            )
-            volume = DEFAULT_LOT_SIZE
+        volume = mapping.get(signal.symbol.upper())
 
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
@@ -266,9 +269,9 @@ class MT5Client:
             "price": price,
             "sl": signal.sl,
             "tp": signal.tp,
-            "deviation": MAX_SLIPPAGE_PT,
-            "magic": MAGIC_NUMBER,
-            "comment": "Trade via API (simulation)",
+            "deviation": 100,
+            "magic": 123456789,
+            "comment": "Trade via API (instant)",
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": mt5.ORDER_FILLING_IOC,
         }
