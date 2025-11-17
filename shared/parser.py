@@ -72,6 +72,8 @@ class SignalParser:
             entry_low = self._normalize_number(entry_range[0])
             entry_high = self._normalize_number(entry_range[1])
 
+            entry_low, entry_high = sorted([entry_low, entry_high])
+
             tp_value = self._normalize_number(words[words.index("TP") + 1])
             sl_value = self._normalize_number(words[words.index("LOSS:") + 1])
 
