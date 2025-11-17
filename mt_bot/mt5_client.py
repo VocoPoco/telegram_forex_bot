@@ -124,7 +124,7 @@ class MT5Client:
     def place_market_order(self, signal: Signal) -> TradeResult:
         """Placing a market order based on the signal."""
         logger.info(
-            "Placing live market order for signal: %s %s [%s - %s], tp=%s, sl=%s",
+            "Placing pending market order for signal: %s %s [%s - %s], tp=%s, sl=%s",
             signal.symbol,
             signal.side,
             signal.entry_low,
@@ -135,7 +135,7 @@ class MT5Client:
         self.ensure_symbol(signal.symbol)
         price = self._get_order_price(signal.symbol, signal.side)
         request = self._build_order_request(signal, price)
-        logger.debug("Order request (live): %s", request)
+        logger.debug("Order request (pending): %s", request)
         result = mt5.order_send(request)
         return self._process_order_result(result)
 
