@@ -203,14 +203,10 @@ class MT5Client:
         side = side.upper()
 
         if side == "BUY":
-            if entry_low > ask:
-                return mt5.ORDER_TYPE_BUY_STOP, entry_low
             if entry_high < ask:
                 return mt5.ORDER_TYPE_BUY_LIMIT, entry_high
             return mt5.ORDER_TYPE_BUY, ask
         else:
-            if entry_high < bid:
-                return mt5.ORDER_TYPE_SELL_STOP, entry_high
             if entry_low > bid:
                 return mt5.ORDER_TYPE_SELL_LIMIT, entry_low
             return mt5.ORDER_TYPE_SELL, bid
@@ -233,7 +229,11 @@ class MT5Client:
             "XAUUSD.S": 0.01,
             "USDJPY.S": 0.04,
         }
-        volume = mapping.get(signal.symbol.upper())
+
+        if action == mt5.TRADE_ACTION_DEAL:
+            volume = 0.02
+        else:
+            volume = mapping.get(signal.symbol.upper())
 
         request = {
             "action": action,
