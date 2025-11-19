@@ -28,6 +28,16 @@ class TradeExecutioner:
 
         with self.trader:
             try:
+                is_immediate = self.trader.is_immediate_entry(signal)
+                logger.info(
+                    "Entry decision for %s: %s",
+                    signal.symbol,
+                    "IMMEDIATE (market)" if is_immediate else "PENDING (limit)",
+                )
+            except Exception:
+                logger.exception("Failed to decide entry type for signal %s", signal)
+                raise
+            try:
                 pending_order_result = self.trader.place_market_order(signal)
                 logger.info(
                     "Pending trade sent: order_id=%s deal_id=%s comment=%s",
@@ -38,19 +48,21 @@ class TradeExecutioner:
             except Exception:
                 logger.exception("Error while sending PENDING trade for signal %s", signal)
                 raise
-
-            try:
-                instant_order_result = self.trader.place_instant_market_order(signal)
-                logger.info(
-                    "Instant trade sent: order_id=%s deal_id=%s comment=%s",
-                    instant_order_result.order_id,
-                    instant_order_result.deal_id,
-                    instant_order_result.comment,
-                )
-            except Exception:
-                logger.exception(
-                    "Error while sending INSTANT trade for signal %s", signal
-                )
-                raise
+            
+            instant_order_result = None
+            if not is_immediate:
+                try:
+                    instant_order_result = self.trader.place_instant_market_order(signal)
+                    logger.info(
+                        "Instant trade sent: order_id=%s deal_id=%s comment=%s",
+                        instant_order_result.order_id,
+                        instant_order_result.deal_id,
+                        instant_order_result.comment,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Error while sending INSTANT trade for signal %s", signal
+                    )
+                    raise
 
         return pending_order_result

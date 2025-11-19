@@ -120,6 +120,19 @@ class MT5Client:
         self.ensure_symbol(symbol)
         bars = mt5.copy_rates_range(symbol, timeframe, _from, _to)
         return bars
+    
+    def is_immediate_entry(self, signal: Signal) -> bool:
+        """
+        Returns True if this signal should be executed as a market order
+        (BUY/SELL), False if it should be a pending order (BUY_LIMIT/SELL_LIMIT).
+        """
+        order_type, _ = self._decide_entry(
+            signal.symbol,
+            signal.side,
+            signal.entry_low,
+            signal.entry_high,
+        )
+        return order_type in (mt5.ORDER_TYPE_BUY, mt5.ORDER_TYPE_SELL)
 
     def place_market_order(self, signal: Signal) -> TradeResult:
         """Placing a market order based on the signal."""
