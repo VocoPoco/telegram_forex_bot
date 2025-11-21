@@ -24,16 +24,14 @@ if __name__ == "__main__":
             rows.append({
                 "message_id": sig.message_id,
                 "symbol": sig.symbol,
-                "side": sig.side,
+                "direction": sig.side,
                 "entry_price": getattr(res, "entry_price"),
-                "tp": sig.tp,
-                "sl": sig.sl,
-                "created_at": sig.created_at,
-                "hit_time": getattr(res, "hit_time"),
-                "entry_type": getattr(res, "entry_type"),
+                "take_profit": sig.tp,
+                "stop_loss": sig.sl,
+                "market_price_at_signal": "",
+                "open_timestamp": sig.created_at,
+                "close_timestamp": getattr(res, "hit_time"),
                 "status": getattr(res, "status"), 
-                "profit": getattr(res, "profit", ""),
-                "notes": getattr(res, "notes", ""),
             })
         file_manager.save_results_to_json(rows)
         file_manager.save_results_to_excel(rows, folder="output")
