@@ -2,7 +2,7 @@ import json
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, List, Optional
 from shared.constants import LAST_MESSAGE_ID_PATH, HISTORY_PATH, RESULTS_PATH
 import logging
 
@@ -65,40 +65,34 @@ class FileManager:
         except Exception:
             logger.exception("Failed to save JSON to %s", target)
 
-    def load_json(self, path: Optional[str] = None) -> Any:
-        """Load a JSON file into memory."""
-        target = Path(path or self.history_path)
+    def load_json(self, path: Optional[str] = None) -> List[dict]:
+        target = Path(path or self.results_path)
 
         if not target.exists():
-            logger.warning("JSON file does not exist: %s", target)
-            return None
+            logger.warning("JSON file %s not found. Returning empty list.", target)
+            return []
 
         try:
-            data = json.loads(target.read_text())
-            logger.info("Loaded JSON from %s", target)
-            return data
-        except Exception:
-            logger.exception("Failed to load JSON from %s", target)
-            return None
+            with target.open("r", encoding="utf-8") as f:
+                data = json.load(f)
 
-    def save_results_to_json(self, rows: list[dict], path: Optional[str] = None) -> None:
-        """
-        Overwrite (rewrite) a .jsonl file with new rows.
-        Each row is written on a new line for structured, easy-to-read storage.
-        Existing data will be replaced.
-        """
+            if isinstance(data, list):
+                return data
+            return [data]
+        except Exception:
+            logger.exception("Failed to read JSON file %s", target)
+            return []
+        
+    def save_results_to_json(self, rows: List[dict], path: Optional[str] = None) -> None:
         target = Path(path or self.results_path)
 
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             with target.open("w", encoding="utf-8") as f:
-                for r in rows:
-                    f.write(json.dumps(r, default=str) + "\n")
-
-            logger.info("Saved %d result rows to JSONL %s", len(rows), target)
-
+                json.dump(rows, f, indent=2, default=str)
+            logger.info("Saved %d result rows to JSON %s", len(rows), target)
         except Exception:
-            logger.exception("Failed to save results JSONL to %s", target)
+            logger.exception("Failed to save results to JSON file %s", target)
 
     def save_results_to_excel(self, rows: list[dict], folder: str = "output", filename: str = "signal_results.xlsx"):
         """Save results to an Excel file for easier analysis."""
