@@ -5,7 +5,8 @@ from shared.constants import (
     MT5_SERVER_DEMO,
 )
 import datetime
-from domain.models import Signal, TradeResult
+from models.signal import Signal
+from models.trade_result import TradeResult
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 class MT5Client:
     """Encapsulates connection to MetaTrader 5 and trade execution."""
+    
+    MARKET_ORDER_TYPES = (mt5.ORDER_TYPE_BUY, mt5.ORDER_TYPE_SELL)
 
     def __init__(
         self,
@@ -90,17 +93,75 @@ class MT5Client:
         logger.debug("Symbol %s is ready for trading.", symbol)
         return mt5.symbol_info(symbol)
 
-    def get_ticks(self, symbol: str, _from: datetime.datetime, _to: datetime.datetime):
-        """Tick-level (best for exact TP/SL-first order)."""
-        logger.info("Fetching ticks for %s from %s to %s", symbol, _from, _to)
-        self.ensure_symbol(symbol)
-        ticks = mt5.copy_ticks_range(
-            symbol,
-            int(_from.timestamp() * 1000),
-            int(_to.timestamp() * 1000),
-            mt5.COPY_TICKS_ALL,
-        )
-        return ticks
+    def get_market_price(self, symbol: str, side: str) -> float | None:
+        """
+        Return current market price for given symbol & side.
+        BUY -> ask, SELL -> bid.
+        """
+        tick = mt5.symbol_info_tick(symbol)
+        if not tick:
+            logger.error("No tick data for %s", symbol)
+            return None
+
+        side = side.upper()
+        return tick.ask if side == "BUY" else tick.bid
+
+    def get_positions(self, ticket: int | None = None, symbol: str | None = None):
+        """
+        Wrapper around mt5.positions_get().
+        - If ticket is given: return position(s) with that ticket.
+        - If symbol is given: return all positions for that symbol.
+        - If neither: return all open positions.
+        """
+        if ticket is not None:
+            positions = mt5.positions_get(ticket=ticket)
+        elif symbol is not None:
+            positions = mt5.positions_get(symbol=symbol)
+        else:
+            positions = mt5.positions_get()
+
+        if positions is None:
+            err = mt5.last_error()
+            logger.error("positions_get failed: %s", err)
+            return tuple()
+
+        return positions
+
+    def find_position_ticket(self, symbol: str, magic: int | None = 123456789) -> int | None:
+        """
+        Find the latest open position ticket for this symbol (optionally filtered by magic).
+        Returns the position.ticket or None if not found.
+        """
+        positions = mt5.positions_get(symbol=symbol)
+        if positions is None or len(positions) == 0:
+            return None
+
+        candidates = positions
+        if magic is not None:
+            candidates = [p for p in positions if p.magic == magic]
+            if not candidates:
+                candidates = positions
+
+        pos = max(candidates, key=lambda p: p.time_msc)
+        return pos.ticket
+
+    def get_history_deals(self, position_id: int):
+        """
+        Returns deals for a given position id over the last `days_back` days.
+
+        This uses:
+          - mt5.history_select(from, to)
+          - mt5.history_deals_get(position=position_id)
+        and returns a tuple of TradeDeal namedtuples (or empty tuple).
+        """
+
+        deals = mt5.history_deals_get(position=position_id)
+        if deals is None:
+            err = mt5.last_error()
+            logger.error("history_deals_get failed: %s", err)
+            return tuple()
+
+        return deals
 
     def get_bars(
         self,
@@ -121,18 +182,11 @@ class MT5Client:
         bars = mt5.copy_rates_range(symbol, timeframe, _from, _to)
         return bars
     
-    def is_immediate_entry(self, signal: Signal) -> bool:
+    def is_market_order_type(self, order_type: int) -> bool:
         """
-        Returns True if this signal should be executed as a market order
-        (BUY/SELL), False if it should be a pending order (BUY_LIMIT/SELL_LIMIT).
+        Return True if the given order_type is a market order (BUY/SELL).
         """
-        order_type, _ = self._decide_entry(
-            signal.symbol,
-            signal.side,
-            signal.entry_low,
-            signal.entry_high,
-        )
-        return order_type in (mt5.ORDER_TYPE_BUY, mt5.ORDER_TYPE_SELL)
+        return order_type in self.MARKET_ORDER_TYPES
 
     def place_market_order(self, signal: Signal) -> TradeResult:
         """Placing a market order based on the signal."""

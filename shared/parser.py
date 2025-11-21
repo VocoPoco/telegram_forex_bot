@@ -1,5 +1,5 @@
 from datetime import datetime
-from domain.models import Signal
+from models.signal import Signal
 import logging
 
 logger = logging.getLogger(__name__)

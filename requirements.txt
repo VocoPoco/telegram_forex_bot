@@ -7,3 +7,6 @@ MetaTrader5
 
 pandas
 openpyxl # For Excel file support in pandas
+
+gspread 
+google-auth

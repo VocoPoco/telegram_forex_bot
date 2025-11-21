@@ -31,4 +31,4 @@ DEFAULT_SYMBOL=os.getenv("DEFAULT_SYMBOL", "XAUUSD.s")
 # File paths
 LAST_MESSAGE_ID_PATH = "var/last_message_id.txt"
 HISTORY_PATH = "var/messages_since_date.json"
-RESULTS_PATH = "var/signal_results.jsonl"
+RESULTS_PATH = "var/signal_results.json"
