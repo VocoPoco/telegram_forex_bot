@@ -1,8 +1,8 @@
 import MetaTrader5 as mt5
 from shared.constants import (
-    MT5_ACCOUNT_DEMO,
-    MT5_PASSWORD_DEMO,
-    MT5_SERVER_DEMO,
+    MT5_ACCOUNT,
+    MT5_PASSWORD,
+    MT5_SERVER,
 )
 import datetime
 from models.signal import Signal
@@ -19,9 +19,9 @@ class MT5Client:
 
     def __init__(
         self,
-        account: int = MT5_ACCOUNT_DEMO,
-        password: str = MT5_PASSWORD_DEMO,
-        server: str = MT5_SERVER_DEMO,
+        account: int = MT5_ACCOUNT,
+        password: str = MT5_PASSWORD,
+        server: str = MT5_SERVER,
     ):
         self.account = account
         self.password = password

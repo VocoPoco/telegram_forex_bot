@@ -2,7 +2,6 @@ import asyncio
 from models.trade_handle import TradeHandle
 from models.signal import Signal
 from mt_bot.mt5_client import MT5Client
-from shared.constants import MT5_ACCOUNT_DEMO, MT5_PASSWORD_DEMO, MT5_SERVER_DEMO
 from storage.file_manager import FileManager
 from datetime import datetime, timezone
 from storage.google_sheet_client import GoogleSheetsClient

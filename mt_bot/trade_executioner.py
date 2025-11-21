@@ -2,7 +2,7 @@ from models.signal import Signal
 from models.trade_result import TradeResult
 from models.trade_handle import TradeHandle
 from mt_bot.mt5_client import MT5Client
-from shared.constants import MT5_ACCOUNT_DEMO, MT5_PASSWORD_DEMO, MT5_SERVER_DEMO
+from shared.constants import MT5_ACCOUNT
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class TradeExecutioner:
     def __init__(self, mt5_client: MT5Client):
         self.trader = mt5_client
-        logger.info("TradeExecutioner initialized with MT5 account %s", MT5_ACCOUNT_DEMO)
+        logger.info("TradeExecutioner initialized with MT5 account %s", MT5_ACCOUNT)
 
     def execute_trade(self, signal: Signal) -> TradeHandle | None:
         """
