@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
-from domain.models import EvaluationResult, Signal
+from models.signal import Signal
+from models.evaluation_result import EvaluationResult
 import MetaTrader5 as mt5
 
 
@@ -78,7 +79,7 @@ class Evaluator:
     def _evaluate_bar(self, signal: Signal, bar, in_trade: bool, entry_type: str, entry_price: float | None) -> dict | None:
         """Check one M1 bar to see if TP or SL was hit."""
         side = signal.side.upper()
-        bar_time = datetime.fromtimestamp(bar['time'], tz=timezone.utc) + timedelta(hours=1)
+        bar_time = datetime.fromtimestamp(bar['time'])
         bar_high, bar_low = bar['high'], bar['low']
 
         if not in_trade:
@@ -86,9 +87,6 @@ class Evaluator:
 
         tp_hit = (bar_high >= signal.tp) if side == "BUY" else (bar_low <= signal.tp)
         sl_hit = (bar_low <= signal.sl) if side == "BUY" else (bar_high >= signal.sl)
-
-        if tp_hit and sl_hit:
-            return self._resolve_tie(signal, bar_time, entry_type, entry_price)
 
         if tp_hit:
             return self._make_result("TP", entry_price, bar_time , entry_type, signal.tp - entry_price if side == "BUY" else entry_price - signal.tp) 
@@ -110,30 +108,6 @@ class Evaluator:
         return False
 
   
-    def _resolve_tie(self, signal: Signal, bar_time: datetime, entry_type: str, entry_price: float) -> dict:
-        """If both TP and SL were touched in the same bar, analyze ticks to decide which hit first."""
-        side = signal.side.upper()
-        next_minute = bar_time + timedelta(minutes=1)
-        ticks = self.mt5.get_ticks(signal.symbol, bar_time, next_minute) or []
-
-        for tick in ticks:
-            price = tick['ask'] if side == "BUY" else tick['bid']
-            time_ = datetime.fromtimestamp(tick['time'] / 1000, tz=timezone.utc)
-
-            if side == "BUY":
-                if price <= signal.sl:
-                    return self._make_result("SL", entry_price, time_, entry_type, "tie → SL first (tick)")
-                if price >= signal.tp:
-                    return self._make_result("TP", entry_price, time_, entry_type, "tie → TP first (tick)")
-            else:
-                if price >= signal.sl:
-                    return self._make_result("SL", entry_price, time_, entry_type, "tie → SL first (tick)")
-                if price <= signal.tp:
-                    return self._make_result("TP", entry_price, time_, entry_type, "tie → TP first (tick)")
-
-        return self._make_result("SL", bar_time, entry_type, "tie → conservative SL")
-
-   
     def _make_result(self, status: str | None, entry_price: float | None, hit_time: datetime | None, entry_type: str, profit: float, notes: str = "") -> dict:
         """Return standardized evaluation result as dict."""
         return EvaluationResult(status, hit_time, entry_price, entry_type, notes, profit)
@@ -155,7 +129,7 @@ class Evaluator:
         for res in results:
             status = _get_status(res)
             if status is None:
-                continue                 # skip missing statuses
+                continue       
             valid_count += 1
             if status == "TP":
                 tp_hits += 1
