@@ -1,8 +1,8 @@
 import MetaTrader5 as mt5
 from shared.constants import (
-    MT5_ACCOUNT,
-    MT5_PASSWORD,
-    MT5_SERVER,
+    MT5_ACCOUNT_DEMO,
+    MT5_PASSWORD_DEMO,
+    MT5_SERVER_DEMO,
 )
 import datetime
 from models.signal import Signal
@@ -19,20 +19,14 @@ class MT5Client:
 
     def __init__(
         self,
-        account: int = MT5_ACCOUNT,
-        password: str = MT5_PASSWORD,
-        server: str = MT5_SERVER,
+        account: int = MT5_ACCOUNT_DEMO,
+        password: str = MT5_PASSWORD_DEMO,
+        server: str = MT5_SERVER_DEMO,
     ):
         self.account = account
         self.password = password
         self.server = server
         self.connected = False
-
-        logger.info(
-            "MT5Client initialized for account=%s, server=%s",
-            self.account,
-            self.server,
-        )
 
     def __enter__(self):
         """Allow usage with 'with' statement."""
@@ -205,6 +199,45 @@ class MT5Client:
         logger.debug("Order request (pending): %s", request)
         result = mt5.order_send(request)
         return self._process_order_result(result)
+    
+    def _ensure_valid_pending_price(
+        self,
+        symbol: str,
+        side: str,
+        order_type: int,
+        price: float,
+    ) -> tuple[int, float]:
+        """
+        Ensure that the pending price is still valid w.r.t current ASK/BID.
+        If not, either adjust it or downgrade to a market order.
+        Returns (final_order_type, final_price).
+        """
+        tick = mt5.symbol_info_tick(symbol)
+        if not tick:
+            raise RuntimeError(f"No tick data for {symbol} while validating pending price")
+
+        ask, bid = tick.ask, tick.bid
+        side = side.upper()
+
+        if order_type == mt5.ORDER_TYPE_BUY_LIMIT:
+            if price >= ask:
+                logger.warning(
+                    "BUY_LIMIT price %s is not below ask=%s anymore; converting to market BUY",
+                    price,
+                    ask,
+                )
+                return mt5.ORDER_TYPE_BUY, ask
+
+        elif order_type == mt5.ORDER_TYPE_SELL_LIMIT:
+            if price <= bid:
+                logger.warning(
+                    "SELL_LIMIT price %s is not above bid=%s anymore; converting to market SELL",
+                    price,
+                    bid,
+                )
+                return mt5.ORDER_TYPE_SELL, bid
+
+        return order_type, price
 
     def place_instant_market_order(self, signal: Signal) -> TradeResult:
         """Placing a instant market order based on the signal."""
@@ -286,6 +319,8 @@ class MT5Client:
             signal.entry_high,
         )
 
+        base_price = entry_price if entry_price is not None else price
+
         action = (
             mt5.TRADE_ACTION_DEAL
             if order_type in (mt5.ORDER_TYPE_BUY, mt5.ORDER_TYPE_SELL)
@@ -301,6 +336,17 @@ class MT5Client:
             volume = 0.02
         else:
             volume = mapping.get(signal.symbol.upper())
+
+        if action == mt5.TRADE_ACTION_PENDING:
+            order_type, price = self._ensure_valid_pending_price(
+                symbol=signal.symbol,
+                side=signal.side,
+                order_type=order_type,
+                price=base_price,
+            )
+
+            if self.is_market_order_type(order_type):
+                action = mt5.TRADE_ACTION_DEAL
 
         request = {
             "action": action,
