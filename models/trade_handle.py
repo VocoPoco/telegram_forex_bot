@@ -10,3 +10,4 @@ class TradeHandle:
     executed_price: float          
     opened_at: datetime
     market_price_at_signal: float
+    pending_order_ticket: int | None = None 

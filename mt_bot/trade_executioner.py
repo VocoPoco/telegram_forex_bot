@@ -52,8 +52,6 @@ class TradeExecutioner:
 
         # 3) place main (pending/market) order
         pending_result = self._place_pending_order(signal)
-        if pending_result is None:
-            return None
 
         # 4) optional instant order
         instant_result = self._place_instant_order_if_needed(signal, is_immediate)
@@ -62,16 +60,19 @@ class TradeExecutioner:
         chosen_result = self._choose_main_result(pending_result, instant_result)
         if chosen_result is None:
             logger.warning("No valid trade result, skipping monitor.")
-            return None
+        
+        pending_order_ticket: int | None = None
+        if instant_result is not None and pending_result is not None:
+            if instant_result is chosen_result and pending_result.order_id is not None:
+                pending_order_ticket = pending_result.order_id
 
         # 6) find POSITION ticket while client is connected
-        position_ticket = self.trader.find_position_ticket(symbol=signal.symbol)
+        position_ticket = self.trader.get_position_ticket(symbol=signal.symbol)
         if position_ticket is None:
             logger.warning(
                 "Could not find position for symbol=%s after order, skipping monitor.",
                 signal.symbol,
             )
-            return None
 
         # 7) build TradeHandle
         trade_handle = self._build_trade_handle(
@@ -80,6 +81,7 @@ class TradeExecutioner:
             position_ticket=position_ticket,
             signal_entry_price=signal_entry_price,
             market_price_at_signal=market_price,
+            pending_order_ticket=pending_order_ticket,
         )
 
         return trade_handle
@@ -150,6 +152,7 @@ class TradeExecutioner:
         position_ticket: int,
         signal_entry_price: float,
         market_price_at_signal: float,
+        pending_order_ticket: int | None = None,
     ) -> TradeHandle:
         executed_price = chosen_result.price or signal_entry_price
 
@@ -160,14 +163,16 @@ class TradeExecutioner:
             executed_price=executed_price,
             opened_at=chosen_result.executed_at,
             market_price_at_signal=market_price_at_signal,
+            pending_order_ticket=pending_order_ticket,
         )
 
         logger.info(
-            "Created TradeHandle: ticket=%s, symbol=%s, signal_entry=%s, executed=%s",
+            "Created TradeHandle: ticket=%s, symbol=%s, signal_entry=%s, executed=%s, pending_order=%s",
             handle.ticket,
             handle.signal.symbol,
             handle.signal_entry_price,
             handle.executed_price,
+            handle.pending_order_ticket,
         )
 
         return handle

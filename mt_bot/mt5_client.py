@@ -121,7 +121,28 @@ class MT5Client:
 
         return positions
 
-    def find_position_ticket(self, symbol: str, magic: int | None = 123456789) -> int | None:
+    def get_orders(self, ticket: int | None = None, symbol: str | None = None):
+        """
+        Wrapper around mt5.orders_get().
+        - If ticket is given: return order(s) with that ticket.
+        - If symbol is given: return all orders for that symbol.
+        - If neither: return all open orders.
+        """
+        if ticket is not None:
+            orders = mt5.orders_get(ticket=ticket)
+        elif symbol is not None:
+            orders = mt5.orders_get(symbol=symbol)
+        else:
+            orders = mt5.orders_get()
+
+        if orders is None:
+            err = mt5.last_error()
+            logger.error("orders_get failed: %s", err)
+            return tuple()
+
+        return orders
+
+    def get_position_ticket(self, symbol: str, magic: int | None = 123456789) -> int | None:
         """
         Find the latest open position ticket for this symbol (optionally filtered by magic).
         Returns the position.ticket or None if not found.
