@@ -69,7 +69,7 @@ class TradeExecutioner:
         
         pending_tickets = []
         
-        OFFSETS = [0, 5, 10]
+        OFFSETS = [0, 4, 7]
         for offset in OFFSETS:
             logger.info("Placing pending order at range %s - %s", signal.entry_low - offset, signal.entry_high - offset)
             
