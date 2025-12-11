@@ -4,6 +4,7 @@ from mt_bot.trade_executioner import TradeExecutioner
 from mt_bot.trade_monitor import TradeMonitor
 from telegram_listener import TelegramListener
 import logging
+import sys
 from logging.handlers import RotatingFileHandler
 from mt_bot.mt5_client import MT5Client
 
@@ -14,12 +15,18 @@ def setup_logging():
     file_handler = RotatingFileHandler(
         "logs/bot.log",
         maxBytes=5_000_000,
-        backupCount=5
+        backupCount=5,
+        encoding="utf-8"
     )
     file_handler.setFormatter(logging.Formatter(log_format))
 
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(logging.Formatter(log_format))
+
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8")
 
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
