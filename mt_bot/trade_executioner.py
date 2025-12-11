@@ -15,164 +15,92 @@ class TradeExecutioner:
 
     def execute_trade(self, signal: Signal) -> TradeHandle | None:
         """
-        Execute a trade based on the parsed signal.
-        Returns a TradeHandle for monitoring, or None on failure.
+        Entry point for executing signal trades.
+        Supports:
+          - TP1 → instant order only
+          - TP2+ → multiple pending orders
         """
         logger.info(
-            "Executing trade: %s %s | TP=%s SL=%s (message_id=%s)",
-            signal.symbol,
-            signal.side,
-            signal.tp,
-            signal.sl,
-            signal.message_id,
+            "Executing trade logic: symbol=%s tp_index=%s offsets=%s",
+            signal.symbol, signal.tp_index, signal.sub_entry_offsets
         )
 
-        # 1) market price at "signal time" (approx)
-        market_price = self.trader.get_market_price(signal.symbol, signal.side)
-        if market_price is None:
-            logger.error("No market price available for %s", signal.symbol)
-            return None
-
-        # 2) decide entry type + signal-entry price using existing _decide_entry
-        order_type, entry_price_candidate = self.trader._decide_entry(
-            signal.symbol,
-            signal.side,
-            signal.entry_low,
-            signal.entry_high,
-        )
-        is_immediate = self.trader.is_market_order_type(order_type)
-        signal_entry_price = entry_price_candidate or market_price
-
-        logger.info(
-            "Entry decision for %s: %s (signal_entry_price=%s)",
-            signal.symbol,
-            "IMMEDIATE (market)" if is_immediate else "PENDING (limit/stop)",
-            signal_entry_price,
-        )
-
-        # 3) place main (pending/market) order
-        pending_result = self._place_pending_order(signal)
-
-        # 4) optional instant order
-        instant_result = self._place_instant_order_if_needed(signal, is_immediate)
-
-        # 5) choose which TradeResult we monitor
-        chosen_result = self._choose_main_result(pending_result, instant_result)
-        if chosen_result is None:
-            logger.warning("No valid trade result, skipping monitor.")
+        if signal.tp_index == 1:
+            return self._execute_instant_trade(signal)
         
-        pending_order_ticket: int | None = None
-        if instant_result is not None and pending_result is not None:
-            if instant_result is chosen_result and pending_result.order_id is not None:
-                pending_order_ticket = pending_result.order_id
+        return self._execute_pending_trades(signal)
+    
 
-        # 6) find POSITION ticket while client is connected
-        position_ticket = self.trader.get_position_ticket(symbol=signal.symbol)
-        if position_ticket is None:
-            logger.warning(
-                "Could not find position for symbol=%s after order, skipping monitor.",
-                signal.symbol,
-            )
-
-        # 7) build TradeHandle
-        trade_handle = self._build_trade_handle(
-            signal=signal,
-            chosen_result=chosen_result,
-            position_ticket=position_ticket,
-            signal_entry_price=signal_entry_price,
-            market_price_at_signal=market_price,
-            pending_order_ticket=pending_order_ticket,
+    def _execute_instant_trade(self, signal: Signal) -> TradeHandle | None:
+        """Instant trade logic: using the first TP of the signal."""
+        
+        result = self.trader.place_instant_market_order(signal)
+        if not result.success:
+            logger.warning("Instant TP order failed")
+            return None
+        
+        logger.info(
+            "Instant order sent: order_id=%s deal_id=%s comment=%s",
+            result.order_id,
+            result.deal_id,
+            result.comment,
         )
 
-        return trade_handle
-
-    def _place_pending_order(self, signal: Signal) -> TradeResult | None:
-        try:
-            result: TradeResult = self.trader.place_market_order(signal)
-            logger.info(
-                "Pending trade sent: order_id=%s deal_id=%s comment=%s",
-                result.order_id,
-                result.deal_id,
-                result.comment,
-            )
-            if not result.success:
-                logger.warning(
-                    "Pending order not successful: order_id=%s, comment=%s",
-                    result.order_id,
-                    result.comment,
-                )
-                return None
-            return result
-        except Exception:
-            logger.exception("Error while sending PENDING trade for signal %s", signal)
+        position_ticket = self.trader.get_position_ticket(signal.symbol)
+        if position_ticket is None:
+            logger.warning("Could not retrieve instant order ticket")
             return None
-
-    def _place_instant_order_if_needed(
-        self,
-        signal: Signal,
-        is_immediate: bool,
-    ) -> TradeResult | None:
-        if is_immediate:
-            return None
-
-        try:
-            result: TradeResult = self.trader.place_instant_market_order(signal)
-            logger.info(
-                "Instant trade sent: order_id=%s deal_id=%s comment=%s",
-                result.order_id,
-                result.deal_id,
-                result.comment,
-            )
-            if not result.success:
-                logger.warning(
-                    "Instant order not successful: order_id=%s, comment=%s",
-                    result.order_id,
-                    result.comment,
-                )
-                return None
-            return result
-        except Exception:
-            logger.exception("Error while sending INSTANT trade for signal %s", signal)
-            return None
-
-    def _choose_main_result(
-        self,
-        pending_result: TradeResult | None,
-        instant_result: TradeResult | None,
-    ) -> TradeResult | None:
-        chosen = instant_result or pending_result
-        if chosen is None or not chosen.success or chosen.order_id is None:
-            return None
-        return chosen
-
-    def _build_trade_handle(
-        self,
-        signal: Signal,
-        chosen_result: TradeResult,
-        position_ticket: int,
-        signal_entry_price: float,
-        market_price_at_signal: float,
-        pending_order_ticket: int | None = None,
-    ) -> TradeHandle:
-        executed_price = chosen_result.price or signal_entry_price
-
+        
         handle = TradeHandle(
             ticket=position_ticket,
             signal=signal,
-            signal_entry_price=signal_entry_price,
-            executed_price=executed_price,
-            opened_at=chosen_result.executed_at,
-            market_price_at_signal=market_price_at_signal,
-            pending_order_ticket=pending_order_ticket,
+            executed_price=result.price,
+            signal_entry_price=result.price,
+            market_price_at_signal=result.price,
+            pending_order_tickets=[],
+            opened_at=result.executed_at,
+            is_parent=True,
         )
+        
+        return handle
+    
+    def _execute_pending_trades(self, signal: Signal) -> TradeHandle | None:
+        """Multiple pending limit orders for second tp of the signal."""
+        
+        pending_tickets = []
+        
+        OFFSETS = [0, 5, 10]
+        for offset in OFFSETS:
+            logger.info("Placing pending order at range %s - %s", signal.entry_low - offset, signal.entry_high - offset)
+            
+            result = self.trader.place_pending_order(
+                signal=signal,
+                offset=offset,
+            )
+            logger.info(
+                "Pending order sent: order_id=%s deal_id=%s comment=%s",
+                result.order_id,
+                result.deal_id,
+                result.comment,
+            )
 
-        logger.info(
-            "Created TradeHandle: ticket=%s, symbol=%s, signal_entry=%s, executed=%s, pending_order=%s",
-            handle.ticket,
-            handle.signal.symbol,
-            handle.signal_entry_price,
-            handle.executed_price,
-            handle.pending_order_ticket,
+            if result and result.success:
+                pending_tickets.append(result.order_id)
+        
+        if not pending_tickets:
+            logger.error("All pending orders failed for TP2+")
+            return None
+        
+        handle = TradeHandle(
+            ticket=None,
+            signal=signal,
+            executed_price=None,
+            signal_entry_price=None,
+            market_price_at_signal=None,
+            pending_order_ticket=None,
+            pending_order_tickets=pending_tickets,
+            opened_at=result.executed_at,
+            is_parent=False,
         )
-
+        
         return handle

@@ -203,10 +203,10 @@ class MT5Client:
         """
         return order_type in self.MARKET_ORDER_TYPES
 
-    def place_market_order(self, signal: Signal) -> TradeResult:
-        """Placing a market order based on the signal."""
+    def place_pending_order(self, signal: Signal, offset: int) -> TradeResult:
+        """Placing a pending order based on the signal."""
         logger.info(
-            "Placing pending market order for signal: %s %s [%s - %s], tp=%s, sl=%s",
+            "Placing pending pending order for signal: %s %s [%s - %s], tp=%s, sl=%s",
             signal.symbol,
             signal.side,
             signal.entry_low,
@@ -216,7 +216,7 @@ class MT5Client:
         )
         self.ensure_symbol(signal.symbol)
         price = self._get_order_price(signal.symbol, signal.side)
-        request = self._build_order_request(signal, price)
+        request = self._build_order_request(signal, price, offset)
         logger.debug("Order request (pending): %s", request)
         result = mt5.order_send(request)
         return self._process_order_result(result)
@@ -332,13 +332,18 @@ class MT5Client:
                 return mt5.ORDER_TYPE_SELL_LIMIT, entry_low
             return mt5.ORDER_TYPE_SELL, bid
 
-    def _build_order_request(self, signal: Signal, price: float) -> dict:
+    def _build_order_request(self, signal: Signal, price: float, offset: int) -> dict:
         order_type, entry_price = self._decide_entry(
             signal.symbol,
             signal.side,
             signal.entry_low,
             signal.entry_high,
         )
+        
+        if order_type == mt5.ORDER_TYPE_BUY_LIMIT:
+            entry_price = entry_price - offset
+        elif order_type == mt5.ORDER_TYPE_SELL_LIMIT:
+            entry_price = entry_price + offset
 
         base_price = entry_price if entry_price is not None else price
 

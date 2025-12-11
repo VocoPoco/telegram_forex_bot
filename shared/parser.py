@@ -53,45 +53,85 @@ class SignalParser:
 
     def parse(self, message_id: int, created_at: datetime, text: str) -> Signal | None:
         """
-        Converts a Telegram message like:
-            "XAUUSD BUY (4276.5-4275.5) TP 4283 STOP LOSS: 4220"
-        into a structured Signal object.
+        Parses signals like:
 
-        Returns an instance of Signal or None if parsing fails.
+            ENTRIAMO IN BUY SU XAUUSD
+            ENTRATA <4207.5-4208.5>
+            STOP LOSS 4160
+            TAKE PROFIT 1 4214
+            TAKE PROFIT 2 4215
+
+        Returns: list[Signal]
         """
 
-        text_clean = text.strip().upper().replace("\n", " ")
+        lines = text.upper().splitlines()
 
-        try:
-            words = text_clean.split()
+        symbol = None
+        direction = None
+        entry_low = None
+        entry_high = None
+        sl_value = None
+        tp_values = []
 
-            symbol = words[0]
-            direction = words[1]
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
 
-            entry_range = words[2].strip("()").split("-")
-            entry_low = self._normalize_number(entry_range[0])
-            entry_high = self._normalize_number(entry_range[1])
+            if "BUY" in line:
+                direction = "BUY"
+            if "SELL" in line:
+                direction = "SELL"
 
-            entry_low, entry_high = sorted([entry_low, entry_high])
+            if " SU " in line:
+                parts = line.split()
+                for p in parts:
+                    if p.isalpha() and len(p) >= 4:
+                        symbol = p + ".s"
 
-            tp_value = self._normalize_number(words[words.index("TP") + 1])
-            sl_value = self._normalize_number(words[words.index("LOSS:") + 1])
+            if line.startswith("ENTRATA"):
+                cleaned = (
+                    line.replace("ENTRATA", "")
+                        .replace("<", "")
+                        .replace(">", "")
+                        .strip()
+                )
 
-            signal = Signal(
+                if "-" in cleaned:
+                    left, right = cleaned.split("-", 1)
+                    entry_low = self._normalize_number(left)
+                    entry_high = self._normalize_number(right)
+                    entry_low, entry_high = sorted([entry_low, entry_high])
+
+            if "STOP LOSS" in line:
+                parts = line.split()
+                sl_value = self._normalize_number(parts[-1])
+
+            if line.startswith("TAKE PROFIT"):
+                parts = line.split()
+                tp_values.append(self._normalize_number(parts[-1]))
+
+        if not symbol or not direction or not entry_low or not entry_high or not sl_value:
+            logger.error("Incomplete signal: %s", text)
+            return None
+
+        if not tp_values:
+            logger.error("No TP values found: %s", text)
+            return None
+
+        signals = []
+        for index, tp in enumerate(tp_values, start=1):
+            signals.append(Signal(
                 message_id=message_id,
                 created_at=created_at,
-                symbol=symbol + ".s",
+                symbol=symbol,
                 side=direction,
                 entry_low=entry_low,
                 entry_high=entry_high,
-                tp=tp_value,
+                tp=tp,
                 sl=sl_value,
-                raw_text=text
-            )
+                raw_text=text,
+                tp_index=index
+            ))
 
-            logger.info("Parsed signal: %s", signal)
-            return signal
-
-        except Exception:
-            logger.exception("Failed to parse message: %s", text)
-            return None
+        return signals

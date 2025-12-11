@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from models.signal import Signal
 
@@ -10,4 +10,5 @@ class TradeHandle:
     executed_price: float          
     opened_at: datetime
     market_price_at_signal: float
-    pending_order_ticket: int | None = None 
+    pending_order_tickets: list[int] = field(default_factory=list)
+    is_parent: bool = False              

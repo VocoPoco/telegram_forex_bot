@@ -46,11 +46,10 @@ class TradeMonitor:
         """
         ticket = trade.ticket
         logger.info(
-            "Starting monitor_trade for position ticket=%s, symbol=%s, side=%s, pending_order_ticket=%s",
+            "Starting monitor_trade for position ticket=%s, symbol=%s, side=%s",
             ticket,
             trade.signal.symbol,
             trade.signal.side,
-            getattr(trade, "pending_order_ticket", None),
         )
 
         while True:
@@ -69,42 +68,28 @@ class TradeMonitor:
             self.rows.append(row)
             self._flush_to_disk()
 
-            pending_ticket = getattr(trade, "pending_order_ticket", None)
-            if row["result"] == "TP" and pending_ticket is not None:
+            if trade.is_parent and row["result"] == "TP":
                 logger.info(
-                    "Trade hit TP. Checking for pending order %s to cancel.",
-                    pending_ticket,
+                    "Parent trade hit TP. Cancelling associated pending orders: %s",
+                    trade.pending_order_tickets,
                 )
 
-                try:
-                    orders = self.mt5.get_orders(ticket=pending_ticket)
-                except AttributeError:
-                    logger.error(
-                        "MT5Client has no get_orders() method. "
-                        "You must implement it to manage pending orders."
-                    )
-                    orders = ()
-
-                if orders:
+                for pending in trade.pending_order_tickets:
                     try:
-                        cancel_result = self.mt5.cancel_pending_order(pending_ticket)
-                        logger.info(
-                            "Cancelled pending order %s, retcode=%s, comment=%s",
-                            pending_ticket,
-                            getattr(cancel_result, "retcode", None),
-                            getattr(cancel_result, "comment", None),
-                        )
-                    except Exception:
-                        logger.exception(
-                            "Failed to cancel pending order %s after TP",
-                            pending_ticket,
-                        )
-                else:
-                    logger.info(
-                        "No live pending order found for ticket=%s; nothing to cancel.",
-                        pending_ticket,
-                    )
+                        orders = self.mt5.get_orders(ticket=pending)
 
+                        if orders:
+                            cancel_result = self.mt5.cancel_pending_order(pending)
+                            logger.info("Cancelled pending order %s", pending)
+                            logger.info(
+                                "Cancelled pending order %s, retcode=%s, comment=%s",
+                                pending, 
+                                getattr(cancel_result, "retcode", None),
+                                getattr(cancel_result, "comment", None),
+                            )
+                    except Exception:
+                        logger.exception("Failed cancelling pending %s", pending)
+            
             logger.info(
                 "Finished monitoring ticket=%s (result=%s)",
                 ticket,

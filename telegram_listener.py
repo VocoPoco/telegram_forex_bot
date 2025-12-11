@@ -76,10 +76,11 @@ class TelegramListener:
                             if text:
                                 logger.info("New message detected: %s", text)
 
-                                sig = self.parser.parse(message.id, message.date, text)
-                                if sig and self.queue:
-                                    logger.info("[SIGNAL RECEIVED] %s", sig)
-                                    await self.queue.put(sig)
+                                signals = self.parser.parse(message.id, message.date, text)
+                                if signals and self.queue:
+                                    for signal in signals:
+                                        logger.info("[SIGNAL RECEIVED] %s", signal)
+                                        await self.queue.put(signal)
 
             except Exception:
                 logger.exception("Error while fetching messages")
@@ -105,7 +106,7 @@ class TelegramListener:
         try:
             with self.app as app:
                 for dialog in app.get_dialogs():
-                    logger.info("%s: %s", dialog.chat.title, dialog.chat.id)
+                    print(f"Title: {dialog.chat.title}, ID: {dialog.chat.id}")
         except Exception:
             logger.exception("Failed to print DM IDs")
 
@@ -156,6 +157,4 @@ class TelegramListener:
 
 if __name__ == "__main__":
     listener = TelegramListener(queue=None)
-    listener.print_last_message()
-    listener.check_group_type()
     listener.print_dm_id()

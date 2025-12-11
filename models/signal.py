@@ -12,3 +12,4 @@ class Signal:
     tp: float
     sl: float
     raw_text: str
+    tp_index: int
