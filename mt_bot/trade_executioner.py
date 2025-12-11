@@ -21,8 +21,8 @@ class TradeExecutioner:
           - TP2+ → multiple pending orders
         """
         logger.info(
-            "Executing trade logic: symbol=%s tp_index=%s offsets=%s",
-            signal.symbol, signal.tp_index, signal.sub_entry_offsets
+            "Executing trade logic: symbol=%s tp_index=%s",
+            signal.symbol, signal.tp_index
         )
 
         if signal.tp_index == 1:
@@ -97,7 +97,6 @@ class TradeExecutioner:
             executed_price=None,
             signal_entry_price=None,
             market_price_at_signal=None,
-            pending_order_ticket=None,
             pending_order_tickets=pending_tickets,
             opened_at=result.executed_at,
             is_parent=False,
