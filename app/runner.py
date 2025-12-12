@@ -75,7 +75,7 @@ async def run_monitor_process(monitor_queue: Queue, mt5_client: MT5Client):
     """Run TradeMonitor that watches trades until they close."""
     logger.info("Starting TradeMonitor loop...")
 
-    monitor = TradeMonitor(mt5_client)
+    monitor = TradeMonitor(mt5_client, monitor_queue)
 
     async def monitor_loop():
         while True:

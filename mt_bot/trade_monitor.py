@@ -1,4 +1,5 @@
 import asyncio
+from asyncio import Queue
 from datetime import datetime, timezone
 import logging
 
@@ -11,8 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 class TradeMonitor:
-    def __init__(self, mt5_client: MT5Client):
+    def __init__(self, mt5_client: MT5Client, monitor_queue: Queue):
         self.mt5 = mt5_client
+        self.monitor_queue = monitor_queue
         self.file_manager = FileManager()
         self.rows = self._load_existing_rows()
 
@@ -69,12 +71,14 @@ class TradeMonitor:
             self._flush_to_disk()
 
             if trade.is_parent and row["result"] == "TP":
-                logger.info(
-                    "Parent trade hit TP. Cancelling associated pending orders: %s",
-                    trade.pending_order_tickets,
-                )
+                child = self._find_child_trade_for_message(trade.signal.message_id)
 
-                for pending in trade.pending_order_tickets:
+                if child:
+                    logger.info(
+                        "Parent TP hit. Cancelling pending orders from child trade: %s",
+                        child.pending_order_tickets
+                    )                
+                for pending in child.pending_order_tickets:
                     try:
                         orders = self.mt5.get_orders(ticket=pending)
 
@@ -151,3 +155,10 @@ class TradeMonitor:
             ],
             index=2,
         )
+
+    def _find_child_trade_for_message(self, message_id: int):
+        for trade in self.monitor_queue:
+            if isinstance(trade, TradeHandle):
+                if (trade.signal.message_id == message_id and not trade.is_parent and trade.pending_order_tickets):
+                    return trade
+        return None
