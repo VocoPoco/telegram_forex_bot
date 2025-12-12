@@ -173,7 +173,6 @@ class MT5Client:
         deals = mt5.history_deals_get(position=position_id)
         if deals is None:
             err = mt5.last_error()
-            logger.error("history_deals_get failed: %s", err)
             return tuple()
 
         return deals
@@ -323,27 +322,26 @@ class MT5Client:
         ask, bid = tick.ask, tick.bid
         side = side.upper()
 
+        TOLERANCE = 1.0
         if side == "BUY":
-            if entry_high < ask:
+            if entry_high < ask - TOLERANCE:
                 return mt5.ORDER_TYPE_BUY_LIMIT, entry_high
             return mt5.ORDER_TYPE_BUY, ask
         else:
-            if entry_low > bid:
+            if entry_low > bid + TOLERANCE:
                 return mt5.ORDER_TYPE_SELL_LIMIT, entry_low
             return mt5.ORDER_TYPE_SELL, bid
 
     def _build_order_request(self, signal: Signal, price: float, offset: int) -> dict:
+        signal_entry_low = signal.entry_low - offset if signal.side == "BUY" else signal.entry_low + offset
+        signal_entry_high = signal.entry_high - offset if signal.side == "BUY" else signal.entry_high + offset
+
         order_type, entry_price = self._decide_entry(
             signal.symbol,
             signal.side,
-            signal.entry_low,
-            signal.entry_high,
+            signal_entry_low,
+            signal_entry_high,
         )
-        
-        if order_type == mt5.ORDER_TYPE_BUY_LIMIT:
-            entry_price = entry_price - offset
-        elif order_type == mt5.ORDER_TYPE_SELL_LIMIT:
-            entry_price = entry_price + offset
 
         base_price = entry_price if entry_price is not None else price
 
@@ -358,10 +356,7 @@ class MT5Client:
             "USDJPY.S": 0.04,
         }
 
-        if action == mt5.TRADE_ACTION_DEAL:
-            volume = 0.02
-        else:
-            volume = mapping.get(signal.symbol.upper())
+        volume = mapping.get(signal.symbol.upper())
 
         if action == mt5.TRADE_ACTION_PENDING:
             order_type, price = self._ensure_valid_pending_price(
