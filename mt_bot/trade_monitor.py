@@ -157,7 +157,7 @@ class TradeMonitor:
         )
 
     def _find_child_trade_for_message(self, message_id: int):
-        for trade in self.monitor_queue:
+        for trade in list(self.monitor_queue._queue):
             if isinstance(trade, TradeHandle):
                 if (trade.signal.message_id == message_id and not trade.is_parent and trade.pending_order_tickets):
                     return trade
